@@ -687,6 +687,27 @@ describe('begin/end', function () {
         ]);
     });
 
+    it('matches begin captures literally in end patterns', function () {
+        $tokens = tokenize('*a.a*', [
+            'scopeName' => 'source.test',
+            'patterns' => [
+                [
+                    'name' => 'markup.emphasis.test',
+                    'begin' => '([*.]+)',
+                    'end' => '\\1',
+                ],
+            ],
+        ]);
+
+        expect($tokens)->toEqualCanonicalizing([
+            [
+                new Token(['source.test', 'markup.emphasis.test'], '*', 0, 1),
+                new Token(['source.test', 'markup.emphasis.test'], 'a.a', 1, 4),
+                new Token(['source.test', 'markup.emphasis.test'], '*', 4, 5),
+                new Token(['source.test'], "\n", 5, 6),
+            ],
+        ]);
+    });
 });
 
 describe('scopes', function () {

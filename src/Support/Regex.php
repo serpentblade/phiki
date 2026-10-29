@@ -72,7 +72,9 @@ class Regex implements Stringable
                 return '';
             }
 
-            return $references[$matches[1]][0];
+            // The captured text is matched literally, so escape anything the regex engine would read
+            // as syntax. This is the same set of characters vscode-textmate escapes.
+            return preg_replace('/[\-\\\\{}*+?|^$.,\[\]()#\s]/', '\\\\$0', $references[$matches[1]][0]);
         }, $pattern);
 
         return $pattern;
