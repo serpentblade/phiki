@@ -43,11 +43,11 @@ class PatternSearcher
         $bestPattern = null;
         $bestRegex = null;
 
-        if (! mb_ereg_search_init($lineText)) {
+        // Initializing the search copies the whole line, which adds up on long lines, so it's
+        // skipped when the line is already the one being searched.
+        if (($this->searches?->useLine($lineText) ?? true) && ! mb_ereg_search_init($lineText)) {
             throw new FailedToInitializePatternSearchException;
         }
-
-        $this->searches?->useLine($lineText);
 
         foreach ($patterns as [$pattern, $regex]) {
             $result = $this->searches?->get($regex, $linePos);

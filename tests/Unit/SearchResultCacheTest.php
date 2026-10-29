@@ -40,13 +40,13 @@ it('does not cache regexes anchored to the search position', function () {
 
 it('forgets results when the line changes', function () {
     $cache = new SearchResultCache;
-    $cache->useLine("foo bar\n");
+
+    expect($cache->useLine("foo bar\n"))->toBeTrue();
+
     $cache->put('bar', 0, [4, 3]);
-    $cache->useLine("foo bar\n");
 
+    expect($cache->useLine("foo bar\n"))->toBeFalse();
     expect($cache->get('bar', 0))->toBe([4, 3]);
-
-    $cache->useLine("bar\n");
-
+    expect($cache->useLine("bar\n"))->toBeTrue();
     expect($cache->get('bar', 0))->toBeNull();
 });

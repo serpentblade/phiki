@@ -27,13 +27,20 @@ class SearchResultCache
 
     /**
      * Start searching the given line, forgetting results from any other line.
+     *
+     * Returns false if this is already the current line, in which case the regex search
+     * doesn't need to be initialized with it again.
      */
-    public function useLine(string $line): void
+    public function useLine(string $line): bool
     {
-        if ($line !== $this->line) {
-            $this->line = $line;
-            $this->results = [];
+        if ($line === $this->line) {
+            return false;
         }
+
+        $this->line = $line;
+        $this->results = [];
+
+        return true;
     }
 
     /**
