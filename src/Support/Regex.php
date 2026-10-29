@@ -54,9 +54,18 @@ class Regex implements Stringable
         }
     }
 
-    public function get(bool $allowA = false, bool $allowG = false, array $references = []): string
+    /**
+     * @param  array<array{ 0: string, 1: int }>|null  $references  The begin captures, for end and while patterns.
+     */
+    public function get(bool $allowA = false, bool $allowG = false, ?array $references = null): string
     {
         $pattern = $this->resolveAnchors($this->pattern, $allowA, $allowG);
+
+        // Only end and while patterns refer back to the begin captures. Anywhere else,
+        // `\1` is an ordinary back-reference to a group in the same pattern.
+        if ($references === null) {
+            return $pattern;
+        }
 
         $pattern = preg_replace_callback('/\\\\(\d+)/', function ($matches) use ($references) {
             if (! isset($references[$matches[1]][0])) {

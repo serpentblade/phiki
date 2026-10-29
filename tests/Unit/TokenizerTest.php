@@ -188,6 +188,26 @@ describe('match', function () {
             ],
         ]);
     });
+
+    it('keeps back-references in match patterns', function () {
+        $tokens = tokenize('abba', [
+            'scopeName' => 'source.test',
+            'patterns' => [
+                [
+                    'name' => 'constant.character.doubled.test',
+                    'match' => '(\\w)\\1',
+                ],
+            ],
+        ]);
+
+        expect($tokens)->toEqualCanonicalizing([
+            [
+                new Token(['source.test'], 'a', 0, 1),
+                new Token(['source.test', 'constant.character.doubled.test'], 'bb', 1, 3),
+                new Token(['source.test'], "a\n", 3, 5),
+            ],
+        ]);
+    });
 });
 
 describe('begin/end', function () {
@@ -666,6 +686,7 @@ describe('begin/end', function () {
             ],
         ]);
     });
+
 });
 
 describe('scopes', function () {
@@ -739,6 +760,33 @@ describe('while', function () {
                 new Token(['source.test', 'markup.quote.block.test', 'punctuation.definition.quote.begin.test'], '>', 0, 1),
                 new Token(['source.test', 'markup.quote.block.test'], ' ', 1, 2),
                 new Token(['source.test', 'markup.quote.block.test', 'markup.quote.block.line.test'], "third line\n", 2, 13),
+            ],
+        ]);
+    });
+
+    it('substitutes begin captures into while patterns', function () {
+        $tokens = tokenize("> a\n> b\n b", [
+            'scopeName' => 'source.test',
+            'patterns' => [
+                [
+                    'name' => 'markup.quote.test',
+                    'begin' => '^(>+) ',
+                    'while' => '^\\1 ',
+                ],
+            ],
+        ]);
+
+        expect($tokens)->toEqualCanonicalizing([
+            [
+                new Token(['source.test', 'markup.quote.test'], '> ', 0, 2),
+                new Token(['source.test', 'markup.quote.test'], "a\n", 2, 4),
+            ],
+            [
+                new Token(['source.test', 'markup.quote.test'], '> ', 0, 2),
+                new Token(['source.test', 'markup.quote.test'], "b\n", 2, 4),
+            ],
+            [
+                new Token(['source.test'], " b\n", 0, 3),
             ],
         ]);
     });

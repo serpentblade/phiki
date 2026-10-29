@@ -35,7 +35,7 @@ class PatternSearcher
     {
         $patterns = $while && $this->pattern instanceof WhilePattern
             ? [
-                [$this->pattern, $this->pattern->while->get($this->allowA, $this->allowG)],
+                [$this->pattern, $this->pattern->while->get($this->allowA, $this->allowG, $this->pattern->begin->matches)],
             ] : ($this->compiled ?? $this->pattern->compile($this->grammar, $this->grammars, $this->allowA, $this->allowG));
         $bestLocation = null;
         $bestLength = null;
