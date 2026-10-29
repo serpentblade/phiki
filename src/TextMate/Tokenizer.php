@@ -2,6 +2,7 @@
 
 namespace Phiki\TextMate;
 
+use Phiki\Contracts\PatternInterface;
 use Phiki\Environment;
 use Phiki\Grammar\BeginEndPattern;
 use Phiki\Grammar\BeginWhilePattern;
@@ -17,6 +18,14 @@ use Phiki\Token\Token;
 
 class Tokenizer
 {
+    /**
+     * Compiled patterns for the current tokenize() call, keyed by pattern, base grammar and anchor flags.
+     * Each entry holds its pattern so the object ID in the key can't be reused while the cache is alive.
+     *
+     * @var array<string, array{ 0: PatternInterface, 1: array<array{ 0: PatternInterface, 1: string }> }>
+     */
+    protected array $compiled = [];
+
     /**
      * Create a new instance.
      */
@@ -47,6 +56,7 @@ class Tokenizer
 
         $lines = array_values(preg_split("/\R/u", $text));
         $tokens = [];
+        $this->compiled = [];
 
         foreach ($lines as $index => $line) {
             if ($index > 0) {
@@ -61,6 +71,8 @@ class Tokenizer
 
             $tokens[] = $lineTokens->getResult($stateStack, $lineLength);
         }
+
+        $this->compiled = [];
 
         return $tokens;
     }
@@ -311,8 +323,41 @@ class Tokenizer
      */
     protected function matchRule(ParsedGrammar $grammar, string $lineText, bool $isFirstLine, int $linePos, StateStack &$stack, int $anchorPosition): ?MatchedPattern
     {
-        return (new PatternSearcher($stack->pattern, $grammar, $this->environment->grammars, $isFirstLine, $linePos === $anchorPosition))
+        $allowG = $linePos === $anchorPosition;
+        $compiled = $this->compile($stack->pattern, $grammar, $isFirstLine, $allowG);
+
+        return (new PatternSearcher($stack->pattern, $grammar, $this->environment->grammars, $isFirstLine, $allowG, $compiled))
             ->findNextMatch($lineText, $linePos);
+    }
+
+    /**
+     * Compile a pattern, reusing the result from earlier in this tokenize() call when possible.
+     *
+     * @return array<array{ 0: PatternInterface, 1: string }>
+     */
+    protected function compile(PatternInterface $pattern, ParsedGrammar $grammar, bool $allowA, bool $allowG): array
+    {
+        // End and while rules are created for each begin match, and an end regex can refer to the
+        // begin captures, so it's rebuilt every time. Their nested patterns come from the begin
+        // rule and don't change, so those are cached against the begin rule instead.
+        $nestedOnly = $pattern instanceof EndPattern || $pattern instanceof WhilePattern;
+        $owner = $nestedOnly ? $pattern->begin->pattern : $pattern;
+        $key = ($nestedOnly ? 'nested:' : '').spl_object_id($owner).':'.spl_object_id($grammar).':'.(int) $allowA.(int) $allowG;
+
+        if (! isset($this->compiled[$key])) {
+            $compiled = $pattern->compile($grammar, $this->environment->grammars, $allowA, $allowG);
+            $this->compiled[$key] = [$owner, $pattern instanceof EndPattern ? array_slice($compiled, 1) : $compiled];
+
+            return $compiled;
+        }
+
+        $nested = $this->compiled[$key][1];
+
+        if ($pattern instanceof EndPattern) {
+            return [[$pattern, $pattern->end->get($allowA, $allowG, $pattern->begin->matches)], ...$nested];
+        }
+
+        return $nested;
     }
 
     /**
@@ -338,7 +383,9 @@ class Tokenizer
                 continue;
             }
 
-            $searcher = new PatternSearcher($injection, $grammar, $this->environment->grammars, $isFirstLine, $linePos === $anchorPosition);
+            $allowG = $linePos === $anchorPosition;
+            $compiled = $this->compile($injection, $grammar, $isFirstLine, $allowG);
+            $searcher = new PatternSearcher($injection, $grammar, $this->environment->grammars, $isFirstLine, $allowG, $compiled);
             $matched = $searcher->findNextMatch($lineText, $linePos);
 
             if (! $matched) {

@@ -624,6 +624,48 @@ describe('begin/end', function () {
             ],
         ]);
     });
+
+    it('rebuilds back-referenced end patterns for each begin match', function () {
+        $tokens = tokenize("'ax\"' \"bx'\"\n\"c'\"", [
+            'scopeName' => 'source.test',
+            'patterns' => [
+                [
+                    'name' => 'string.quoted.test',
+                    'begin' => '([\'"])',
+                    'end' => '\\1',
+                    'patterns' => [
+                        [
+                            'name' => 'constant.character.test',
+                            'match' => 'x',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        expect($tokens)->toEqualCanonicalizing([
+            [
+                new Token(['source.test', 'string.quoted.test'], "'", 0, 1),
+                new Token(['source.test', 'string.quoted.test'], 'a', 1, 2),
+                new Token(['source.test', 'string.quoted.test', 'constant.character.test'], 'x', 2, 3),
+                new Token(['source.test', 'string.quoted.test'], '"', 3, 4),
+                new Token(['source.test', 'string.quoted.test'], "'", 4, 5),
+                new Token(['source.test'], ' ', 5, 6),
+                new Token(['source.test', 'string.quoted.test'], '"', 6, 7),
+                new Token(['source.test', 'string.quoted.test'], 'b', 7, 8),
+                new Token(['source.test', 'string.quoted.test', 'constant.character.test'], 'x', 8, 9),
+                new Token(['source.test', 'string.quoted.test'], "'", 9, 10),
+                new Token(['source.test', 'string.quoted.test'], '"', 10, 11),
+                new Token(['source.test'], "\n", 11, 12),
+            ],
+            [
+                new Token(['source.test', 'string.quoted.test'], '"', 0, 1),
+                new Token(['source.test', 'string.quoted.test'], "c'", 1, 3),
+                new Token(['source.test', 'string.quoted.test'], '"', 3, 4),
+                new Token(['source.test'], "\n", 4, 5),
+            ],
+        ]);
+    });
 });
 
 describe('scopes', function () {

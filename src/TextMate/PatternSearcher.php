@@ -14,6 +14,8 @@ class PatternSearcher
 {
     /**
      * Create a new instance.
+     *
+     * @param  array<array{ 0: PatternInterface, 1: string }>|null  $compiled  The pattern already compiled for these anchor flags, if the caller has it.
      */
     public function __construct(
         protected PatternInterface $pattern,
@@ -21,6 +23,7 @@ class PatternSearcher
         protected GrammarRepositoryInterface $grammars,
         protected bool $allowA,
         protected bool $allowG,
+        protected ?array $compiled = null,
     ) {}
 
     /**
@@ -31,7 +34,7 @@ class PatternSearcher
         $patterns = $while && $this->pattern instanceof WhilePattern
             ? [
                 [$this->pattern, $this->pattern->while->get($this->allowA, $this->allowG)],
-            ] : $this->pattern->compile($this->grammar, $this->grammars, $this->allowA, $this->allowG);
+            ] : ($this->compiled ?? $this->pattern->compile($this->grammar, $this->grammars, $this->allowA, $this->allowG));
         $bestLocation = null;
         $bestLength = null;
         $bestMatches = null;
