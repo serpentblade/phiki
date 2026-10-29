@@ -27,6 +27,11 @@ class Tokenizer
     protected array $compiled = [];
 
     /**
+     * Results of earlier regex searches on the line being tokenized, for the current tokenize() call.
+     */
+    protected ?SearchResultCache $searches = null;
+
+    /**
      * Create a new instance.
      */
     public function __construct(
@@ -57,6 +62,7 @@ class Tokenizer
         $lines = array_values(preg_split("/\R/u", $text));
         $tokens = [];
         $this->compiled = [];
+        $this->searches = new SearchResultCache;
 
         foreach ($lines as $index => $line) {
             if ($index > 0) {
@@ -73,6 +79,7 @@ class Tokenizer
         }
 
         $this->compiled = [];
+        $this->searches = null;
 
         return $tokens;
     }
@@ -326,7 +333,7 @@ class Tokenizer
         $allowG = $linePos === $anchorPosition;
         $compiled = $this->compile($stack->pattern, $grammar, $isFirstLine, $allowG);
 
-        return (new PatternSearcher($stack->pattern, $grammar, $this->environment->grammars, $isFirstLine, $allowG, $compiled))
+        return (new PatternSearcher($stack->pattern, $grammar, $this->environment->grammars, $isFirstLine, $allowG, $compiled, $this->searches))
             ->findNextMatch($lineText, $linePos);
     }
 
@@ -385,7 +392,7 @@ class Tokenizer
 
             $allowG = $linePos === $anchorPosition;
             $compiled = $this->compile($injection, $grammar, $isFirstLine, $allowG);
-            $searcher = new PatternSearcher($injection, $grammar, $this->environment->grammars, $isFirstLine, $allowG, $compiled);
+            $searcher = new PatternSearcher($injection, $grammar, $this->environment->grammars, $isFirstLine, $allowG, $compiled, $this->searches);
             $matched = $searcher->findNextMatch($lineText, $linePos);
 
             if (! $matched) {
@@ -431,7 +438,7 @@ class Tokenizer
 
         // Process and check each while pattern.
         for ($whileRule = array_pop($whileRules); $whileRule; $whileRule = array_pop($whileRules)) {
-            $searcher = new PatternSearcher($whileRule->rule, $grammar, $this->environment->grammars, $isFirstLine, $linePos === $anchorPosition);
+            $searcher = new PatternSearcher($whileRule->rule, $grammar, $this->environment->grammars, $isFirstLine, $linePos === $anchorPosition, searches: $this->searches);
             $r = $searcher->findNextMatch($lineText, $linePos, while: true);
 
             if (! $r) {

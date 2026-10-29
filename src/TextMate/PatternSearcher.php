@@ -16,6 +16,7 @@ class PatternSearcher
      * Create a new instance.
      *
      * @param  array<array{ 0: PatternInterface, 1: string }>|null  $compiled  The pattern already compiled for these anchor flags, if the caller has it.
+     * @param  SearchResultCache|null  $searches  Results of earlier searches on the same line, to reuse where they still hold.
      */
     public function __construct(
         protected PatternInterface $pattern,
@@ -24,6 +25,7 @@ class PatternSearcher
         protected bool $allowA,
         protected bool $allowG,
         protected ?array $compiled = null,
+        protected ?SearchResultCache $searches = null,
     ) {}
 
     /**
@@ -39,17 +41,27 @@ class PatternSearcher
         $bestLength = null;
         $bestMatches = null;
         $bestPattern = null;
+        $bestRegex = null;
 
         if (! mb_ereg_search_init($lineText)) {
             throw new FailedToInitializePatternSearchException;
         }
 
-        foreach ($patterns as [$pattern, $regex]) {
-            if (! mb_ereg_search_setpos($linePos)) {
-                throw new FailedToSetSearchPositionException;
-            }
+        $this->searches?->useLine($lineText);
 
-            $result = @mb_ereg_search_pos($regex);
+        foreach ($patterns as [$pattern, $regex]) {
+            $result = $this->searches?->get($regex, $linePos);
+            $searched = $result === null;
+
+            if ($searched) {
+                if (! mb_ereg_search_setpos($linePos)) {
+                    throw new FailedToSetSearchPositionException;
+                }
+
+                $result = @mb_ereg_search_pos($regex);
+
+                $this->searches?->put($regex, $linePos, $result);
+            }
 
             if ($result === false) {
                 continue;
@@ -57,27 +69,30 @@ class PatternSearcher
 
             [$start, $length] = $result;
 
-            if ($start === $linePos) {
-                $bestLocation = $start;
-                $bestMatches = mb_ereg_search_getregs();
-                $bestLength = $length;
-                $bestPattern = $pattern;
-
-                break;
-            }
-
-            if ($start < $bestLocation || $bestLocation === null) {
+            if ($start === $linePos || $start < $bestLocation || $bestLocation === null) {
                 $bestLocation = $start;
                 $bestLength = $length;
-                $bestMatches = mb_ereg_search_getregs();
+                $bestMatches = $searched ? mb_ereg_search_getregs() : null;
                 $bestPattern = $pattern;
+                $bestRegex = $regex;
 
-                continue;
+                if ($start === $linePos) {
+                    break;
+                }
             }
         }
 
         if ($bestPattern === null) {
             return null;
+        }
+
+        // A cached result has no captures, so search again from where it starts to get them.
+        if ($bestMatches === null) {
+            if (! mb_ereg_search_setpos($bestLocation)) {
+                throw new FailedToSetSearchPositionException;
+            }
+
+            $bestMatches = mb_ereg_search_pos($bestRegex) !== false ? mb_ereg_search_getregs() : false;
         }
 
         // Since we know the start position and length of the match, we can
