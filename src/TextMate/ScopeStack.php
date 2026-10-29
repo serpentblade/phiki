@@ -7,6 +7,11 @@ use Stringable;
 class ScopeStack implements Stringable
 {
     /**
+     * @var list<string>|null
+     */
+    protected ?array $segments = null;
+
+    /**
      * Create a new instance.
      */
     public function __construct(
@@ -29,6 +34,10 @@ class ScopeStack implements Stringable
      */
     public function getSegments(): array
     {
+        if ($this->segments !== null) {
+            return $this->segments;
+        }
+
         $stack = $this;
         $result = [];
 
@@ -37,7 +46,7 @@ class ScopeStack implements Stringable
             $stack = $stack->parent;
         }
 
-        return array_reverse($result);
+        return $this->segments = array_reverse($result);
     }
 
     /**
