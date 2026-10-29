@@ -234,6 +234,37 @@ describe('match', function () {
             ],
         ]);
     });
+
+    it('retokenizes captures after multibyte characters within the capture', function () {
+        $tokens = tokenize('éé ab cd', [
+            'scopeName' => 'source.test',
+            'patterns' => [
+                [
+                    'match' => '(\\w+) (\\w+)',
+                    'captures' => [
+                        '1' => [
+                            'name' => 'entity.test',
+                            'patterns' => [
+                                ['match' => '\\w', 'name' => 'letter.test'],
+                                ['match' => ' ', 'name' => 'space.test'],
+                            ],
+                        ],
+                        '2' => ['name' => 'constant.test'],
+                    ],
+                ],
+            ],
+        ]);
+
+        expect($tokens)->toEqualCanonicalizing([
+            [
+                new Token(['source.test', 'entity.test', 'letter.test'], 'é', 0, 2),
+                new Token(['source.test', 'entity.test', 'letter.test'], 'é', 2, 4),
+                new Token(['source.test'], ' ', 4, 5),
+                new Token(['source.test', 'constant.test'], 'ab', 5, 7),
+                new Token(['source.test'], " cd\n", 7, 11),
+            ],
+        ]);
+    });
 });
 
 describe('begin/end', function () {
