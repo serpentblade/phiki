@@ -12,6 +12,14 @@ class ScopeStack implements Stringable
     protected ?array $segments = null;
 
     /**
+     * Stacks already pushed onto this one, so pushing the same scope again reuses the same
+     * node, and the tokens on it share one list of segments.
+     *
+     * @var array<string, ScopeStack>
+     */
+    protected array $children = [];
+
+    /**
      * Create a new instance.
      */
     public function __construct(
@@ -24,7 +32,7 @@ class ScopeStack implements Stringable
      */
     public function push(string $scopeName): ScopeStack
     {
-        return new ScopeStack($this, $scopeName);
+        return $this->children[$scopeName] ??= new ScopeStack($this, $scopeName);
     }
 
     /**
